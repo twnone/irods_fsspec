@@ -4,6 +4,7 @@ import ssl
 from fsspec.spec import AbstractFileSystem
 from fsspec.registry import register_implementation
 from irods.session import iRODSSession
+from irods.ticket import Ticket
 from urllib.parse import urlparse
 
 IRODS_PORT = 1247
@@ -42,14 +43,27 @@ class IRODSFileSystem(AbstractFileSystem):
                 log.debug(f'Initializing iRODS session from {env_file}')
                 self.session = iRODSSession(irods_env_file=env_file, ssl_context=ssl_context)
             else:
-                log.debug(f'Initializing iRODS session from specified ({host=}, {port=}, {user=}, password=****, {zone=})')
-                self.session = iRODSSession(
-                    host=host,
-                    port=port if port is not None else IRODS_PORT,
-                    user=user,
-                    password=password,
-                    zone=zone
-                )
+                if user == "anonymous":
+                    log.debug(f'Initializing anonymous iRODS session from specified ({host=}, {port=}, {zone=})')
+                    self.session = iRODSSession(
+                        host=host,
+                        port=port if port is not None else IRODS_PORT,
+                        user=user,
+                        password="",
+                        zone=zone
+                    )
+                    log.debug(f'Supplying ticket {password} to iRODS session.')
+                    ticket = Ticket(self.session, password)
+                    ticket.supply()
+                else:
+                    log.debug(f'Initializing iRODS session from specified ({host=}, {port=}, {user=}, password=****, {zone=})')
+                    self.session = iRODSSession(
+                        host=host,
+                        port=port if port is not None else IRODS_PORT,
+                        user=user,
+                        password=password,
+                        zone=zone
+                    )
         else:
             log.debug(f'Reusing session {session}')
             self.session = session
